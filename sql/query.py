@@ -19,6 +19,9 @@ class Q(TypeQ):
     LIKE_START = 'start'
     LIKE_END = 'end'
 
+    ASC = ''
+    DESC = 'DESC'
+
     def __init__(self, query, *args, field=None):
         self.query = query
         self.args = args

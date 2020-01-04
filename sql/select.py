@@ -15,6 +15,7 @@ class Select(TypeQuery):
             'where': [],
             'group': [],
             'having': [],
+            'order': [],
             'offset': None,
             'limit': None
         }
@@ -71,6 +72,10 @@ class Select(TypeQuery):
         self.params['having'].extend(q)
         return self
 
+    def order(self, *q):
+        self.params['order'].extend(q)
+        return self
+
     def query(self):
         args = []
 
@@ -79,7 +84,7 @@ class Select(TypeQuery):
             if isinstance(q, TypeQ):
                 fields.append((q.attach(args), alias))
             elif isinstance(q, TypeField):
-                fields.append((q.query_name, alias))
+                fields.append((q.query, alias))
             else:
                 fields.append((Q.value(q).attach(args), alias))
 
@@ -91,7 +96,9 @@ class Select(TypeQuery):
             ),
             'FROM',
             ', '.join(
-                f'{table.query_name} {table.query_alias}'
+                table.Meta.query
+                if table.Meta.query == table.Meta.name
+                else f'{table.Meta.name} {table.Meta.query}'
                 for table in self.params['from']
             )
         ]
@@ -99,8 +106,9 @@ class Select(TypeQuery):
         for table, (q, method) in self.params['join'].items():
             chunks.append(' '.join((
                 method,
-                table.query_name,
-                table.query_alias,
+                table.Meta.query
+                if table.Meta.query == table.Meta.name
+                else f'{table.Meta.name} {table.Meta.query}',
                 'ON',
                 q.attach(args)
             )))
@@ -115,15 +123,22 @@ class Select(TypeQuery):
         if self.params['group']:
             chunks.append('GROUP BY')
             chunks.append(', '.join(
-                q.query_name if isinstance(q, TypeField) else q.attach(args)
+                q.query if isinstance(q, TypeField) else q.attach(args)
                 for q in self.params['group']
             ))
 
         if self.params['having']:
             chunks.append('HAVING')
             chunks.append(', '.join(
-                q.query_name if isinstance(q, TypeField) else q.attach(args)
+                q.query if isinstance(q, TypeField) else q.attach(args)
                 for q in self.params['having']
+            ))
+
+        if self.params['order']:
+            chunks.append('ORDER BY')
+            chunks.append(', '.join(
+                q.query if isinstance(q, TypeField) else q.attach(args)
+                for q in self.params['order']
             ))
 
         if self.params['offset'] is not None:
